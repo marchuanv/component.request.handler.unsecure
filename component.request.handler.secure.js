@@ -95,145 +95,88 @@ function SecureSession({ username, hashedPassphrase, hashedPassphraseSalt, token
     };
 }
 
-const handleSecureRequest = async ({ publicHost, publicPort, path, requestHeaders, requestData, callback }) => {
-    
-    const { username, passphrase, token, fromhost, fromport } = requestHeaders;
-    const results = { headers: {}, statusCode: 200, statusMessage: "Success" };
-    const requestUrl = `${publicHost}:${publicPort}${path}`;
-
-    const handler = module.exports.http.handlers.find(h =>  h.publicHost === publicHost && h.publicPort === publicPort && h.path === path && h.security);
-    if (handler){
-
-        const isSecure = (handler.security.username !== undefined && handler.security.hashedPassphrase !== undefined && handler.security.hashedPassphraseSalt !== undefined);
-
-        let session = module.exports.http.server.sessions.find(session => session.token === token);
-        let decryptedData = "";
-        if (session) {
-            logging.write("Component Secure Server",`using session ${session.id} for ${requestUrl}`);
-            logging.write("Component Secure Server",`decrypting data received from ${requestUrl}`);
-            if (isBase64String(requestData)===true){
-                decryptedData = session.decryptData({ data: requestData }) || requestData;
-            } else {
-                logging.write("Component Secure Server",`decryption failed, data received from ${requestUrl} is not encrypted.`);
-            }
-        } else if (username && passphrase && fromhost && fromport && isSecure === true) {
-            if (handler.security.username === username){
-                const newSession = new SecureSession({ 
-                    username, 
-                    hashedPassphrase: handler.security.hashedPassphrase, 
-                    hashedPassphraseSalt: handler.security.hashedPassphraseSalt, 
-                    fromhost, 
-                    fromport: Number(fromport),
-                    token
-                });
-                if (newSession.authenticate({ passphrase })===true){
-                    module.exports.http.server.sessions.push(newSession);
-                    session = newSession;
-                    logging.write("Component Secure Server",`new session ${session.id} created for ${requestUrl}`);
+module.exports = { 
+    session: [],
+    callback: async ({ publicHost, publicPort, path, requestHeaders, requestData }) => {
+        const { username, passphrase, token, fromhost, fromport } = requestHeaders;
+        const results = { headers: {}, statusCode: 200, statusMessage: "Success" };
+        const requestUrl = `${publicHost}:${publicPort}${path}`;
+        const handler = module.exports.http.handlers.find(h =>  h.publicHost === publicHost && h.publicPort === publicPort && h.path === path && h.security);
+        if (handler){
+            const isSecure = (handler.security.username !== undefined && handler.security.hashedPassphrase !== undefined && handler.security.hashedPassphraseSalt !== undefined);
+            let session = module.exports.sessions.find(session => session.token === token);
+            let decryptedData = "";
+            if (session) {
+                logging.write("Component Secure Server",`using session ${session.id} for ${requestUrl}`);
+                logging.write("Component Secure Server",`decrypting data received from ${requestUrl}`);
+                if (isBase64String(requestData)===true){
+                    decryptedData = session.decryptData({ data: requestData }) || requestData;
                 } else {
-                    logging.write("Component Secure Server",`${requestUrl} is not authorised.`);
+                    logging.write("Component Secure Server",`decryption failed, data received from ${requestUrl} is not encrypted.`);
                 }
+            } else if (username && passphrase && fromhost && fromport && isSecure === true) {
+                if (handler.security.username === username){
+                    const newSession = new SecureSession({ 
+                        username, 
+                        hashedPassphrase: handler.security.hashedPassphrase, 
+                        hashedPassphraseSalt: handler.security.hashedPassphraseSalt, 
+                        fromhost, 
+                        fromport: Number(fromport),
+                        token
+                    });
+                    if (newSession.authenticate({ passphrase })===true){
+                        module.exports.sessions.push(newSession);
+                        session = newSession;
+                        logging.write("Component Secure Server",`new session ${session.id} created for ${requestUrl}`);
+                    } else {
+                        logging.write("Component Secure Server",`${requestUrl} is not authorised.`);
+                    }
+                }
+                decryptedData = requestData;
             }
-            decryptedData = requestData;
-        }
-
-        if (isSecure === true && !session){
-            const message = "Unauthorised";
-            results.statusCode = 401;
+            if (isSecure === true && !session){
+                const message = "Unauthorised";
+                results.statusCode = 401;
+                results.statusMessage = message;
+                results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
+                results.data = message;
+                return results;
+            }
+            if (isSecure === false){
+                decryptedData = requestData;
+            }
+            const isPreflight = requestHeaders["access-control-request-headers"] !== undefined;
+            if(isPreflight){
+                results.headers["Content-Type"] = "text/plain";
+                results.data = "";
+            } else if (session) {
+                const { data, contentType, statusCode } = await handler.callback({ fromhost: session.fromhost, fromport: session.fromport, data: decryptedData });
+                logging.write("Component Secure Server",`encrypting data received from ${requestUrl} handler`);
+                results.data = session.encryptData({ encryptionkey: requestHeaders.encryptionkey, data });
+                results.headers["Content-Type"] = contentType;
+                results.statusCode = statusCode || results.statusCode;
+                results.headers.encryptionkey = session.getEncryptionKey();
+                results.headers.token = session.token;
+                results.fromhost = session.fromhost;
+                results.fromport = session.fromport;
+            } else {
+                const { data, contentType, statusCode } = await handler.callback({ fromhost, fromport: Number(fromport), data: decryptedData });
+                results.statusCode = statusCode || results.statusCode;
+                results.headers["Content-Type"] = contentType;
+                results.data = data;
+            }
+            results.headers["Content-Length"] = Buffer.byteLength(results.data);
+            results.headers["Access-Control-Allow-Origin"] = "*";
+            results.headers["Access-Control-Expose-Headers"] = "*";
+            results.headers["Access-Control-Allow-Headers"] = "*";
+            results.isSecure = isSecure;
+        } else {
+            const message = "Not Found";
+            results.statusCode = 404;
             results.statusMessage = message;
             results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
             results.data = message;
-            return results;
         }
-
-        if (isSecure === false){
-            decryptedData = requestData;
-        }
-    
-        const isPreflight = requestHeaders["access-control-request-headers"] !== undefined;
-        if(isPreflight){
-            results.headers["Content-Type"] = "text/plain";
-            results.data = "";
-        } else if (session) {
-            const { data, contentType, statusCode } = await callback({ fromhost: session.fromhost, fromport: session.fromport, data: decryptedData });
-            logging.write("Component Secure Server",`encrypting data received from ${requestUrl} handler`);
-            results.data = session.encryptData({ encryptionkey: requestHeaders.encryptionkey, data });
-            results.headers["Content-Type"] = contentType;
-            results.statusCode = statusCode || results.statusCode;
-            results.headers.encryptionkey = session.getEncryptionKey();
-            results.headers.token = session.token;
-            results.fromhost = session.fromhost;
-            results.fromport = session.fromport;
-        } else {
-            const { data, contentType, statusCode } = await callback({ fromhost, fromport: Number(fromport), data: decryptedData });
-            results.statusCode = statusCode || results.statusCode;
-            results.headers["Content-Type"] = contentType;
-            results.data = data;
-        }
-        
-        results.headers["Content-Length"] = Buffer.byteLength(results.data);
-        results.headers["Access-Control-Allow-Origin"] = "*";
-        results.headers["Access-Control-Expose-Headers"] = "*";
-        results.headers["Access-Control-Allow-Headers"] = "*";
-        results.isSecure = isSecure;
-
-    } else {
-        const message = "Not Found";
-        results.statusCode = 404;
-        results.statusMessage = message;
-        results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
-        results.data = message;
-    }
-    return results;
-}
-
-const sendSecureRequest = async ({ host, port, path, requestHeaders, data, callback }) => {
-    const requestUrl = `${host}:${port}${path}`;
-    let session = module.exports.http.client.sessions.find(session => session.token === requestHeaders.token);
-    let encryptData = "";
-    if (session){
-        logging.write("Component Secure Client",`existing session ${session.id} for ${requestUrl}`);
-        logging.write("Component Secure Client",`encrypting data to send to ${requestUrl}`);
-        encryptData = session.encryptData({ encryptionkey: requestHeaders.encryptionkey, data });
-        requestHeaders.token = session.token;
-        requestHeaders.encryptionkey = session.getEncryptionKey();
-    } else if (requestHeaders.username && requestHeaders.passphrase) {
-        const { hashedPassphrase, salt } = hashPassphrase(requestHeaders.passphrase);
-        session = new SecureSession({
-            username: requestHeaders.username, 
-            hashedPassphrase, 
-            hashedPassphraseSalt: salt, 
-            token: requestHeaders.token, 
-            fromhost: requestHeaders.fromhost, 
-            fromport: requestHeaders.fromport
-        });
-        module.exports.http.client.sessions.push(session);
-        encryptData = data;
-        logging.write("Component Secure Client",`new session ${session.id} for ${requestUrl}`);
-        requestHeaders.token = session.token;
-        requestHeaders.encryptionkey = session.getEncryptionKey();
-    }
-    const results = await callback({ requestHeaders, data: encryptData });
-    if (session && results.statusCode === 200){
-        logging.write("Component Secure Client",`decrypting data received from ${requestUrl}`);
-        if (isBase64String(results.data)===true){
-            results.data = session.decryptData({ data: results.data });
-        } else {
-            logging.write("Component Secure Client",`decryption failed, data received from ${requestUrl} is not encrypted.`);
-        }
-    }
-    return results;
-};
-
-module.exports = { 
-    http: {
-        handlers: [],
-        server: {sessions: []},
-        client: {sessions: []},
-        secure: { 
-            handle: handleSecureRequest, 
-            send: sendSecureRequest,
-            hashPassphrase
-        }
+        return results;
     }
 };
