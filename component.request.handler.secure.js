@@ -107,12 +107,12 @@ module.exports = {
             let session = module.exports.sessions.find(session => session.token === token);
             let decryptedData = "";
             if (session) {
-                logging.write("Securing Received Request",`using session ${session.id} for ${requestUrl}`);
-                logging.write("Securing Received Request",`decrypting data received from ${requestUrl}`);
+                logging.write("Handling Secure Request",`using session ${session.id} for ${requestUrl}`);
+                logging.write("Handling Secure Request",`decrypting data received from ${requestUrl}`);
                 if (isBase64String(requestData)===true){
                     decryptedData = session.decryptData({ data: requestData }) || requestData;
                 } else {
-                    logging.write("Securing Received Request",`decryption failed, data received from ${requestUrl} is not encrypted.`);
+                    logging.write("Handling Secure Request",`decryption failed, data received from ${requestUrl} is not encrypted.`);
                 }
             } else if (username && passphrase && fromhost && fromport && isSecure === true) {
                 if (handler.security.username === username){
@@ -127,9 +127,9 @@ module.exports = {
                     if (newSession.authenticate({ passphrase })===true){
                         module.exports.sessions.push(newSession);
                         session = newSession;
-                        logging.write("Securing Received Request",`new session ${session.id} created for ${requestUrl}`);
+                        logging.write("Handling Secure Request",`new session ${session.id} created for ${requestUrl}`);
                     } else {
-                        logging.write("Securing Received Request",`${requestUrl} is not authorised.`);
+                        logging.write("Handling Secure Request",`${requestUrl} is not authorised.`);
                     }
                 }
                 decryptedData = requestData;
@@ -151,7 +151,7 @@ module.exports = {
                 results.data = "";
             } else if (session) {
                 const { data, contentType, statusCode } = await handler.callback({ fromhost: session.fromhost, fromport: session.fromport, data: decryptedData });
-                logging.write("Securing Received Request",`encrypting data received from ${requestUrl} handler`);
+                logging.write("Handling Secure Request",`encrypting data received from ${requestUrl} handler`);
                 results.data = session.encryptData({ encryptionkey: requestHeaders.encryptionkey, data });
                 results.headers["Content-Type"] = contentType;
                 results.statusCode = statusCode || results.statusCode;
