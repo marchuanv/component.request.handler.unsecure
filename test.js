@@ -1,17 +1,19 @@
-const SecureSession = require("./component.request.handler.secure.js");
+const componentRequestHandler = require("./component.request.handler.secure.js");
 const logging = require("logging");
-logging.config(["Component Secure"]);
+logging.config(["Request Handler Secure","Request Handler"]);
 (async()=>{
-
-    const username = "admin";
-    const secureSession = new SecureSession({  username, passphrase: "secure1" });
-    ({ token, encryptionkey } = secureSession);
-    if (token){
-        encryptedData = secureSession.encryptRequest({ data: "Hello World From Client" });
-        decryptedData = secureSession.decryptRequest({ data: encryptedData });
-    }
-    console.log(decryptedData);
-    
+    (await componentRequestHandler.handle({ 
+        publicHost: "localhost", 
+        publicPort: 3000, 
+        privatePort: 3000, 
+        path: "/test",
+        username: "admin"
+    })).receive(({fromhost, fromport, data })=>{
+        return {
+            contentType: "text/html",
+            data: "<html>HELLO</html>"
+        };
+    });
 })().catch((err)=>{
     console.log(err);
 });

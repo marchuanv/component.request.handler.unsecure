@@ -1,6 +1,7 @@
 const utils = require("utils");
 const logging = require("logging");
 const crypto = require("crypto");
+const componentRequestHandler = require("component.request.handler");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
 
 const isBase64String = (str) => {
@@ -96,87 +97,124 @@ function SecureSession({ username, hashedPassphrase, hashedPassphraseSalt, token
 }
 
 module.exports = { 
-    session: [],
-    callback: async ({ publicHost, publicPort, path, requestHeaders, requestData }) => {
-        const { username, passphrase, token, fromhost, fromport } = requestHeaders;
-        const results = { headers: {}, statusCode: 200, statusMessage: "Success" };
-        const requestUrl = `${publicHost}:${publicPort}${path}`;
-        const handler = module.exports.http.handlers.find(h =>  h.publicHost === publicHost && h.publicPort === publicPort && h.path === path && h.security);
-        if (handler){
-            const isSecure = (handler.security.username !== undefined && handler.security.hashedPassphrase !== undefined && handler.security.hashedPassphraseSalt !== undefined);
-            let session = module.exports.sessions.find(session => session.token === token);
-            let decryptedData = "";
-            if (session) {
-                logging.write("Handling Secure Request",`using session ${session.id} for ${requestUrl}`);
-                logging.write("Handling Secure Request",`decrypting data received from ${requestUrl}`);
-                if (isBase64String(requestData)===true){
-                    decryptedData = session.decryptData({ data: requestData }) || requestData;
-                } else {
-                    logging.write("Handling Secure Request",`decryption failed, data received from ${requestUrl} is not encrypted.`);
-                }
-            } else if (username && passphrase && fromhost && fromport && isSecure === true) {
-                if (handler.security.username === username){
-                    const newSession = new SecureSession({ 
-                        username, 
-                        hashedPassphrase: handler.security.hashedPassphrase, 
-                        hashedPassphraseSalt: handler.security.hashedPassphraseSalt, 
-                        fromhost, 
-                        fromport: Number(fromport),
-                        token
-                    });
-                    if (newSession.authenticate({ passphrase })===true){
-                        module.exports.sessions.push(newSession);
-                        session = newSession;
-                        logging.write("Handling Secure Request",`new session ${session.id} created for ${requestUrl}`);
-                    } else {
-                        logging.write("Handling Secure Request",`${requestUrl} is not authorised.`);
+    sessions: [],
+    handle: (options) => {
+        return new Promise(async (resovle) => {
+            (await componentRequestHandler.port( { privatePort: options.privatePort })).handle(async(request) => {
+                const { username, passphrase, token, fromhost, fromport } = request.headers;
+                let results = { headers: {}, statusCode: -1, statusMessage: "" };
+                if (request.path === options.path) {
+                    const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
+                    const isSecure = (options.username !== undefined && options.hashedPassphrase !== undefined && options.hashedPassphraseSalt !== undefined);
+                    let session = module.exports.sessions.find(session => session.token === token);
+                    let decryptedData = "";
+                    if (session) {
+                        logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
+                        logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
+                        if (isBase64String(request.data)===true){
+                            decryptedData = session.decryptData({ data: request.data }) || request.data;
+                        } else {
+                            logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
+                        }
+                    } else if (username && passphrase && fromhost && fromport && isSecure === true) {
+                        if (options.username === username){
+                            const newSession = new SecureSession({ 
+                                username, 
+                                hashedPassphrase: handler.hashedPassphrase, 
+                                hashedPassphraseSalt: handler.hashedPassphraseSalt, 
+                                fromhost, 
+                                fromport: Number(fromport),
+                                token
+                            });
+                            if (newSession.authenticate({ passphrase })===true){
+                                module.exports.sessions.push(newSession);
+                                session = newSession;
+                                logging.write("Request Handler Secure",`new session ${session.id} created for ${requestUrl}`);
+                            } else {
+                                logging.write("Request Handler Secure",`${requestUrl} is not authorised.`);
+                            }
+                        }
+                        decryptedData = requestData;
                     }
+                    if (isSecure === true && !session){
+                        const message = "Unauthorised";
+                        results.statusCode = 401;
+                        results.statusMessage = message;
+                        results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
+                        results.data = message;
+                        return results;
+                    }
+                    if (isSecure === false){
+                        decryptedData = request.data;
+                    }
+                    const isPreflight = request.headers["access-control-request-headers"] !== undefined;
+                    if(isPreflight){
+                        results.headers["Content-Type"] = "text/plain";
+                        results.data = "";
+                    } else if (session) {
+                        const resultsPromise = new Promise((resultsResolve, resultsReject) => {
+                            resovle({ receive: async (callback) => {
+                                let received= callback({ fromhost, fromport: Number(fromport), data: decryptedData });
+                                if (received && received.then){
+                                    received = await received.catch((error)=>{
+                                        logging.write("Request Handler Secure"," ", error.toString());
+                                        resultsReject(error);
+                                    });
+                                }
+                                if (!received){
+                                    return resultsReject("callback did not return any data.");
+                                }
+                                logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
+                                let results = { headers: {}, statusCode: -1, statusMessage: "" };
+                                results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data });
+                                results.statusCode = received.statusCode || 200;
+                                results.statusMessage = received.statusMessage || "Success";
+                                results.headers = { "Content-Type": received.contentType };
+                                results.headers.encryptionkey = session.getEncryptionKey();
+                                results.headers.token = session.token;
+                                results.fromhost = session.fromhost;
+                                results.fromport = session.fromport;
+                                resultsResolve(results)
+                            }});
+                        });
+                        results = await resultsPromise;
+                    } else {
+                        const resultsPromise = new Promise((resultsResolve, resultsReject) => {
+                            resovle({ receive: async (callback) => {
+                                let received= callback({ fromhost, fromport: Number(fromport), data: decryptedData });
+                                if (received && received.then){
+                                    received = await received.catch((error)=>{
+                                        logging.write("Request Handler Secure"," ", error.toString());
+                                        resultsReject(error);
+                                    });
+                                }
+                                if (!received){
+                                    return resultsReject("callback did not return any data.");
+                                }
+                                let results = { headers: {}, statusCode: -1, statusMessage: "" };
+                                results.statusCode = received.statusCode || 200;
+                                results.data = received.data || "";
+                                results.statusMessage = received.statusMessage || "Success";
+                                results.headers = { "Content-Type": received.contentType };
+                                resultsResolve(results)
+                            }});
+                        });
+                        results = await resultsPromise;
+                    }
+                    results.headers["Content-Length"] = Buffer.byteLength(results.data);
+                    results.headers["Access-Control-Allow-Origin"] = "*";
+                    results.headers["Access-Control-Expose-Headers"] = "*";
+                    results.headers["Access-Control-Allow-Headers"] = "*";
+                    results.isSecure = isSecure;
+                } else {
+                    const message = "Not Found";
+                    results.statusCode = 404;
+                    results.statusMessage = message;
+                    results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
+                    results.data = message;
                 }
-                decryptedData = requestData;
-            }
-            if (isSecure === true && !session){
-                const message = "Unauthorised";
-                results.statusCode = 401;
-                results.statusMessage = message;
-                results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
-                results.data = message;
                 return results;
-            }
-            if (isSecure === false){
-                decryptedData = requestData;
-            }
-            const isPreflight = requestHeaders["access-control-request-headers"] !== undefined;
-            if(isPreflight){
-                results.headers["Content-Type"] = "text/plain";
-                results.data = "";
-            } else if (session) {
-                const { data, contentType, statusCode } = await handler.callback({ fromhost: session.fromhost, fromport: session.fromport, data: decryptedData });
-                logging.write("Handling Secure Request",`encrypting data received from ${requestUrl} handler`);
-                results.data = session.encryptData({ encryptionkey: requestHeaders.encryptionkey, data });
-                results.headers["Content-Type"] = contentType;
-                results.statusCode = statusCode || results.statusCode;
-                results.headers.encryptionkey = session.getEncryptionKey();
-                results.headers.token = session.token;
-                results.fromhost = session.fromhost;
-                results.fromport = session.fromport;
-            } else {
-                const { data, contentType, statusCode } = await handler.callback({ fromhost, fromport: Number(fromport), data: decryptedData });
-                results.statusCode = statusCode || results.statusCode;
-                results.headers["Content-Type"] = contentType;
-                results.data = data;
-            }
-            results.headers["Content-Length"] = Buffer.byteLength(results.data);
-            results.headers["Access-Control-Allow-Origin"] = "*";
-            results.headers["Access-Control-Expose-Headers"] = "*";
-            results.headers["Access-Control-Allow-Headers"] = "*";
-            results.isSecure = isSecure;
-        } else {
-            const message = "Not Found";
-            results.statusCode = 404;
-            results.statusMessage = message;
-            results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
-            results.data = message;
-        }
-        return results;
+            });
+        });
     }
 };
