@@ -165,7 +165,7 @@ module.exports = {
                                     return resultsReject("callback did not return any data.");
                                 }
                                 logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
-                                let results = { headers: {}, statusCode: -1, statusMessage: "" };
+                                let results = {};
                                 results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data });
                                 results.statusCode = received.statusCode || 200;
                                 results.statusMessage = received.statusMessage || "Success";
@@ -191,7 +191,7 @@ module.exports = {
                                 if (!received){
                                     return resultsReject("callback did not return any data.");
                                 }
-                                let results = { headers: {}, statusCode: -1, statusMessage: "" };
+                                let results = {};
                                 results.statusCode = received.statusCode || 200;
                                 results.data = received.data || "";
                                 results.statusMessage = received.statusMessage || "Success";
