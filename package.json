@@ -23,6 +23,6 @@
   "dependencies": {
     "utils": "git+https://github.com/marchuanv/utils.git",
     "logging": "git+https://github.com/marchuanv/logging.git",
-    "component.request.route": "git+https://github.com/marchuanv/component.request.handler.deferred.git"
+    "component.request.handler.deferred": "git+https://github.com/marchuanv/component.request.handler.deferred.git"
   }
 }
