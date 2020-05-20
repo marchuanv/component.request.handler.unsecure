@@ -4,6 +4,8 @@ const crypto = require("crypto");
 const componentRequestHandlerDeferred = require("component.request.handler.deferred");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
 
+logging.config.add("Request Handler Secure");
+
 const isBase64String = (str) => {
     base64.lastIndex = 0;
     return base64.test(str);
