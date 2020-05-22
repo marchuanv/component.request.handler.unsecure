@@ -103,7 +103,7 @@ module.exports = {
     handle: (options) => {
         return new Promise(async (resovle) => {
             const requeue = async () => {
-                (await componentRequestHandlerDeferred.handle({ port: options.privatePort, path: options.path })).receive(async(request) => {
+                (await componentRequestHandlerDeferred.handle(options)).receive( async (request) => {
                     requeue();
                     const { username, passphrase, token, fromhost, fromport } = request.headers;
                     let results = { headers: {}, statusCode: -1, statusMessage: "" };
