@@ -1,6 +1,4 @@
 const componentRequestHandler = require("./component.request.handler.secure.js");
-const logging = require("logging");
-logging.config(["Request Handler Secure","Request Handler"]);
 (async()=>{
     const requeue = async () => {
         (await componentRequestHandler.handle({ 
