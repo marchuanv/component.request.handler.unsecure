@@ -1,21 +1,11 @@
-const componentRequestHandler = require("./component.request.handler.secure.js");
-(async()=>{
-    const requeue = async () => {
-        (await componentRequestHandler.handle({ 
-            publicHost: "localhost", 
-            publicPort: 3000, 
-            privatePort: 3000, 
-            path: "/test",
-            username: "admin"
-        })).receive(({fromhost, fromport, data }) => {
-            requeue();
-            return {
-                contentType: "text/html",
-                data: "<html>HELLO</html>"
-            };
-        });
-    };
-    requeue();
+const requestHandler = require("./component.request.handler.secure.js");
+const delegate = require("component.delegate");
+(async()=>{ 
+    const callingModule = "component.request.handler.secure";
+    delegate.register(callingModule, (callback) => {
+        return { statusCode: 200, statusMessage: "Success", headers: {}, data: null };
+    });
+    await requestHandler.handle({ callingModule, port: 3000, path: "/test" });
 })().catch((err)=>{
-    console.log(err);
+    console.error(err);
 });

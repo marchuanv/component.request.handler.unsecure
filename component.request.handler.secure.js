@@ -1,7 +1,8 @@
 const utils = require("utils");
 const logging = require("logging");
 const crypto = require("crypto");
-const componentRequestHandlerDeferred = require("component.request.handler.deferred");
+const requestHandler = require("component.request.handler.deferred");
+const delegate = require("component.delegate");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
 
 logging.config.add("Request Handler Secure");
@@ -101,48 +102,34 @@ function SecureSession({ username, hashedPassphrase, hashedPassphraseSalt, token
 module.exports = { 
     sessions: [],
     handle: (options) => {
-        return new Promise(async (resovle) => {
-            const requeue = async () => {
-                (await componentRequestHandlerDeferred.handle(options)).receive( async (request) => {
-                    requeue();
-                    const { username, passphrase, token, fromhost, fromport } = request.headers;
-                    let results = { headers: {}, statusCode: -1, statusMessage: "" };
-                    const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
-                    let session = module.exports.sessions.find(session => session.token === token);
-                    let decryptedData = "";
-                    if (session) {
-                        logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
-                        logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
-                        if (isBase64String(request.data)===true){
-                            decryptedData = session.decryptData({ data: request.data }) || request.data;
-                        } else {
-                            logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
-                        }
-                    } else if (options.username && options.hashedPassphrase && options.hashedPassphraseSalt && username && passphrase && fromhost && fromport) {
-                        if (options.username === username){
-                            const newSession = new SecureSession({ 
-                                username, 
-                                hashedPassphrase: handler.hashedPassphrase, 
-                                hashedPassphraseSalt: handler.hashedPassphraseSalt, 
-                                fromhost, 
-                                fromport: Number(fromport),
-                                token
-                            });
-                            if (newSession.authenticate({ passphrase })===true){
-                                module.exports.sessions.push(newSession);
-                                session = newSession;
-                                logging.write("Request Handler Secure",`new session ${session.id} created for ${requestUrl}`);
-                            } else {
-                                logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
-                                const message = "Unauthorised";
-                                results.statusCode = 401;
-                                results.statusMessage = message;
-                                results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
-                                results.data = message;
-                                return results;
-                            }
-                        }
-                        decryptedData = requestData;
+        delegate.register("component.request.handler.secure", async (request) => {
+            const { username, passphrase, token, fromhost, fromport } = request.headers;
+            let results = { headers: {}, statusCode: -1, statusMessage: "" };
+            const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
+            let session = module.exports.sessions.find(session => session.token === token);
+            let decryptedData = "";
+            if (session) {
+                logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
+                logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
+                if (isBase64String(request.data)===true){
+                    decryptedData = session.decryptData({ data: request.data }) || request.data;
+                } else {
+                    logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
+                }
+            } else if (options.username && options.hashedPassphrase && options.hashedPassphraseSalt && username && passphrase && fromhost && fromport) {
+                if (options.username === username){
+                    const newSession = new SecureSession({ 
+                        username, 
+                        hashedPassphrase: handler.hashedPassphrase, 
+                        hashedPassphraseSalt: handler.hashedPassphraseSalt, 
+                        fromhost, 
+                        fromport: Number(fromport),
+                        token
+                    });
+                    if (newSession.authenticate({ passphrase })===true){
+                        module.exports.sessions.push(newSession);
+                        session = newSession;
+                        logging.write("Request Handler Secure",`new session ${session.id} created for ${requestUrl}`);
                     } else {
                         logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
                         const message = "Unauthorised";
@@ -152,38 +139,31 @@ module.exports = {
                         results.data = message;
                         return results;
                     }
-                    const resultsPromise = new Promise((resultsResolve, resultsReject) => {
-                        resovle({ receive: async (callback) => {
-                            let received= callback({ fromhost, fromport: Number(fromport), data: decryptedData });
-                            if (received && received.then){
-                                received = await received.catch((error)=>{
-                                    logging.write("Request Handler Secure"," ", error.toString());
-                                    resultsReject(error);
-                                });
-                            }
-                            if (!received){
-                                return resultsReject("callback did not return any data.");
-                            }
-                            logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
-                            let results = {};
-                            results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data });
-                            results.statusCode = received.statusCode || 200;
-                            results.statusMessage = received.statusMessage || "Success";
-                            results.headers = { "Content-Type": received.contentType };
-                            results.headers.encryptionkey = session.getEncryptionKey();
-                            results.headers.token = session.token;
-                            results.fromhost = session.fromhost;
-                            results.fromport = session.fromport;
-                            resultsResolve(results)
-                        }});
-                    });
-                    results = await resultsPromise;
-                    results.headers["Content-Length"] = Buffer.byteLength(results.data);
-                    results.isSecure = true;
-                    return results;
-                });
-            };
-            requeue();
+                }
+                decryptedData = requestData;
+            } else {
+                logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
+                const message = "Unauthorised";
+                results.statusCode = 401;
+                results.statusMessage = message;
+                results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
+                results.data = message;
+                return results;
+            }
+            logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
+            results = await delegate.call(options.callingModule, { fromhost, fromport: Number(fromport), data: decryptedData } );
+            results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data });
+            results.statusCode = received.statusCode || 200;
+            results.statusMessage = received.statusMessage || "Success";
+            results.headers = { "Content-Type": received.contentType };
+            results.headers.encryptionkey = session.getEncryptionKey();
+            results.headers.token = session.token;
+            results.fromhost = session.fromhost;
+            results.fromport = session.fromport;
+            results.headers["Content-Length"] = Buffer.byteLength(results.data);
+            results.isSecure = true;
+            return results;
         });
+        requestHandler.handle({ callingModule: "component.request.handler.secure", port: options.port, path: options.path });
     }
 };
