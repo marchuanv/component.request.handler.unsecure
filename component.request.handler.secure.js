@@ -2,6 +2,7 @@ const utils = require("utils");
 const logging = require("logging");
 const crypto = require("crypto");
 const requestHandler = require("component.request.handler.user");
+const thisModule = "component.request.handler.secure";
 const delegate = require("component.delegate");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
 
@@ -102,7 +103,7 @@ function SecureSession({ username, hashedPassphrase, hashedPassphraseSalt, token
 module.exports = { 
     sessions: [],
     handle: (options) => {
-        delegate.register("component.request.handler.secure", async (request) => {
+        delegate.register(thisModule, async (request) => {
             const { username, passphrase, token, fromhost, fromport } = request.headers;
             let results = { headers: {}, statusCode: -1, statusMessage: "" };
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
@@ -164,7 +165,7 @@ module.exports = {
             results.isSecure = true;
             return results;
         });
-        requestHandler.handle({ callingModule: "component.request.handler.secure", port: options.privatePort, path: options.path });
+        requestHandler.handle({ callingModule: thisModule, port: options.privatePort, path: options.path });
     },
     hashPassphrase
 };
