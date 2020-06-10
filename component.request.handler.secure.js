@@ -1,7 +1,7 @@
 const utils = require("utils");
 const logging = require("logging");
 const crypto = require("crypto");
-const requestHandler = require("component.request.handler.deferred");
+const requestHandler = require("component.request.handler.user");
 const delegate = require("component.delegate");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
 
@@ -120,9 +120,9 @@ module.exports = {
                 if (options.username === username){
                     const newSession = new SecureSession({ 
                         username, 
-                        hashedPassphrase: handler.hashedPassphrase, 
-                        hashedPassphraseSalt: handler.hashedPassphraseSalt, 
-                        fromhost, 
+                        hashedPassphrase: options.hashedPassphrase, 
+                        hashedPassphraseSalt: options.hashedPassphraseSalt,
+                        fromhost,
                         fromport: Number(fromport),
                         token
                     });
