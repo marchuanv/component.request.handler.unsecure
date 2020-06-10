@@ -164,6 +164,6 @@ module.exports = {
             results.isSecure = true;
             return results;
         });
-        requestHandler.handle({ callingModule: "component.request.handler.secure", port: options.port, path: options.path });
+        requestHandler.handle({ callingModule: "component.request.handler.secure", port: options.privatePort, path: options.path });
     }
 };
