@@ -165,5 +165,6 @@ module.exports = {
             return results;
         });
         requestHandler.handle({ callingModule: "component.request.handler.secure", port: options.privatePort, path: options.path });
-    }
+    },
+    hashPassphrase
 };
