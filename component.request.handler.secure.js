@@ -13,30 +13,6 @@ const isBase64String = (str) => {
     return base64.test(str);
 };
 
-const genRandomString = (length) => {
-    return crypto.randomBytes(Math.ceil(length/2))
-            .toString('hex') /** convert to hexadecimal format */
-            .slice(0,length);   /** return required number of characters */
-};
-
-const sha512 = (password, salt) => {
-    var hash = crypto.createHmac('sha512', salt); /** Hashing algorithm sha512 */
-    hash.update(password);
-    var value = hash.digest('hex');
-    return { salt, hashedPassphrase: value };
-};
-
-const hashPassphrase = (userpassword, salt) => {
-    salt = salt || genRandomString(16); /** Gives us salt of length 16 */
-    return sha512(userpassword, salt);
-}
-
-const isExpiredSession = (expireDate) => {
-    const currentDate = new Date();
-    const expired = currentDate.getTime() > expireDate.getTime();
-    return expired
-}
-
 const stringToBase64 = (str) => {
     return Buffer.from(str, "utf8").toString("base64");
 }
@@ -81,7 +57,7 @@ function SecureSession({ username, hashedPassphrase, hashedPassphraseSalt, token
     this.fromport =fromport;
 
     this.authenticate = ({ passphrase }) => {
-        const results = hashPassphrase(passphrase, hashedPassphraseSalt);
+        const results = utils.hashPassphrase(passphrase, hashedPassphraseSalt);
         return results.hashedPassphrase === hashedPassphrase;
     };
 
@@ -162,6 +138,5 @@ module.exports = {
             return results;
         });
         requestHandler.handle({ callingModule: thisModule, port: options.privatePort, path: options.path });
-    },
-    hashPassphrase
+    }
 };
