@@ -117,14 +117,14 @@ module.exports = {
                 } else {
                     logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
                 }
-            } else if (options.username && options.hashedPassphrase && options.hashedPassphraseSalt && username && passphrase && fromhost && fromport) {
+            } else if (options.username && options.hashedPassphrase && options.hashedPassphraseSalt && username && passphrase && fromhost && fromport ) {
                 if (options.username === username){
                     const newSession = new SecureSession({ 
                         username, 
                         hashedPassphrase: options.hashedPassphrase, 
                         hashedPassphraseSalt: options.hashedPassphraseSalt,
                         fromhost,
-                        fromport: Number(fromport),
+                        fromport,
                         token
                     });
                     if (newSession.authenticate({ passphrase })===true){
@@ -141,7 +141,7 @@ module.exports = {
                         return results;
                     }
                 }
-                decryptedData = requestData;
+                decryptedData = request.data;
             } else {
                 logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
                 const message = "Unauthorised";
@@ -152,17 +152,13 @@ module.exports = {
                 return results;
             }
             logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
-            results = await delegate.call(options.callingModule, { fromhost, fromport: Number(fromport), data: decryptedData } );
-            results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data });
-            results.statusCode = received.statusCode || 200;
-            results.statusMessage = received.statusMessage || "Success";
-            results.headers = { "Content-Type": received.contentType };
+            results = await delegate.call(options.callingModule, { fromhost, fromport, data: decryptedData } );
+            results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data: request.data });
             results.headers.encryptionkey = session.getEncryptionKey();
             results.headers.token = session.token;
             results.fromhost = session.fromhost;
             results.fromport = session.fromport;
             results.headers["Content-Length"] = Buffer.byteLength(results.data);
-            results.isSecure = true;
             return results;
         });
         requestHandler.handle({ callingModule: thisModule, port: options.privatePort, path: options.path });
