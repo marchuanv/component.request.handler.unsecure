@@ -136,7 +136,7 @@ module.exports = {
             if (results.error){
                 return results;    
             }
-            results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data: request.data });
+            results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data: results.data });
             results.headers.encryptionkey = session.getEncryptionKey();
             results.headers.token = session.token;
             results.fromhost = session.fromhost;
