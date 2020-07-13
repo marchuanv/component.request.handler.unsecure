@@ -45,20 +45,20 @@ const generateKeys = (passphrase) => {
     });
 };
 
-function SecureSession({ username, hashedPassphrase, hashedPassphraseSalt, token, fromHost, fromPort }) {
+function SecureSession({ username, hashedpassphrase, hashedpassphrasesalt, token, fromhost, fromport }) {
     
     this.id = utils.generateGUID();
-    const { publicKey, privateKey } = generateKeys(hashedPassphrase);
+    const { publicKey, privateKey } = generateKeys(hashedpassphrase);
     this.privateKey = privateKey;
     this.publicKey = publicKey;
-    this.encryptedPassphrase = encryptToBase64Str(hashedPassphrase,  this.publicKey);
-    this.token = token || encryptToBase64Str(utils.getJSONString({ username , fromHost, fromPort }), this.publicKey);
-    this.fromHost =fromHost;
-    this.fromPort =fromPort;
+    this.encryptedPassphrase = encryptToBase64Str(hashedpassphrase,  this.publicKey);
+    this.token = token || encryptToBase64Str(utils.getJSONString({ username , fromhost, fromport }), this.publicKey);
+    this.fromhost =fromhost;
+    this.fromport =fromport;
 
     this.authenticate = ({ passphrase }) => {
-        const results = utils.hashPassphrase(passphrase, hashedPassphraseSalt);
-        return results.hashedPassphrase === hashedPassphrase;
+        const results = utils.hashPassphrase(passphrase, hashedpassphrasesalt);
+        return results.hashedpassphrase === hashedpassphrase;
     };
 
     this.getEncryptionKey = () => {
@@ -71,7 +71,7 @@ function SecureSession({ username, hashedPassphrase, hashedPassphraseSalt, token
     };
     
     this.decryptData = ({ data } ) => {
-        const decryptedData = decryptFromBase64Str(data, this.privateKey, hashedPassphrase);
+        const decryptedData = decryptFromBase64Str(data, this.privateKey, hashedpassphrase);
         return decryptedData;
     };
 }
@@ -80,7 +80,7 @@ module.exports = {
     sessions: [],
     handle: (callingModule, options) => {
         delegate.register(thisModule, async (request) => {
-            const { username, passphrase, hashedPassphrase, hashedPassphraseSalt, token, fromHost, fromPort } = request.headers;
+            const { username, passphrase, hashedpassphrase, hashedpassphrasesalt, token, fromhost, fromport } = request.headers;
             let results = { headers: {}, statusCode: -1, statusMessage: "" };
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
             let session = module.exports.sessions.find(session => session.token === token);
@@ -93,16 +93,16 @@ module.exports = {
                 } else {
                     logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
                 }
-            } else if (username && fromHost && fromPort && ( (hashedPassphrase && hashedPassphraseSalt) || passphrase ) ) {
+            } else if (username && fromhost && fromport && ( (hashedpassphrase && hashedpassphrasesalt) || passphrase ) ) {
                 const newSession = new SecureSession({ 
                     username,
-                    hashedPassphrase,
-                    hashedPassphraseSalt,
-                    fromHost,
-                    fromPort,
+                    hashedpassphrase,
+                    hashedpassphrasesalt,
+                    fromhost,
+                    fromport,
                     token
                 });
-                if (options.hashedPassphrase === hashedPassphrase && options.hashedPassphraseSalt === hashedPassphraseSalt){
+                if (options.hashedpassphrase === hashedpassphrase && options.hashedpassphrasesalt === hashedpassphrasesalt){
                     module.exports.sessions.push(newSession);
                     session = newSession;
                     logging.write("Request Handler Secure",`new session ${session.id} created for ${requestUrl}`);
@@ -130,25 +130,25 @@ module.exports = {
                 return results;
             }
             logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
-            results = await delegate.call(callingModule, { fromHost, fromPort, data: decryptedData } );
+            results = await delegate.call(callingModule, { fromhost, fromport, data: decryptedData } );
             if (results.error){
                 return results;    
             }
             results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data: request.data });
             results.headers.encryptionkey = session.getEncryptionKey();
             results.headers.token = session.token;
-            results.fromHost = session.fromHost;
-            results.fromPort = session.fromPort;
+            results.fromhost = session.fromhost;
+            results.fromport = session.fromport;
             results.headers["Content-Length"] = Buffer.byteLength(results.data);
             return results;
         });
         requestHandler.handle(thisModule, {
             port: options.privatePort,
             path: options.path,
-            hashedPassphrase: options.hashedPassphrase,
-            hashedPassphraseSalt: options.hashedPassphraseSalt,
-            fromPort: options.fromPort,
-            fromHost: options.fromHost,
+            hashedpassphrase: options.hashedpassphrase,
+            hashedpassphrasesalt: options.hashedpassphrasesalt,
+            fromport: options.fromport,
+            fromhost: options.fromhost,
             username: options.username
         });
     }
