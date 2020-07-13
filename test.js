@@ -6,10 +6,8 @@ const utils = require("utils");
     delegate.register(callingModule, (callback) => {
         return { statusCode: 200, statusMessage: "Success", headers: {}, data: null };
     });
-    
     const { hashedPassphrase, salt } = utils.hashPassphrase("secure1");
-    await requestHandler.handle({ 
-        callingModule, 
+    await requestHandler.handle(callingModule, {
         privatePort: 3000, 
         path: "/test", 
         publicHost: "localhost", 
