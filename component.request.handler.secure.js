@@ -2,7 +2,6 @@ const utils = require("utils");
 const logging = require("logging");
 const crypto = require("crypto");
 const requestHandler = require("component.request.handler.user");
-const thisModule = "component.request.handler.secure";
 const delegate = require("component.delegate");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
 
@@ -80,6 +79,7 @@ function SecureSession({ username, token, fromhost, fromport, hashedPassphrase, 
 module.exports = { 
     sessions: [],
     handle: (callingModule, options) => {
+        const thisModule = `component.request.handler.secure.${options.path.replace("/","")}`;
         delegate.register(thisModule, async (request) => {
             let { username, passphrase, token, fromhost, fromport } = request.headers;
             let results = { headers: {}, statusCode: -1, statusMessage: "" };
