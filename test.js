@@ -6,16 +6,24 @@ const utils = require("utils");
     delegate.register(callingModule, (callback) => {
         return { statusCode: 200, statusMessage: "Success", headers: {}, data: "" };
     });
-    const { hashedPassphrase, salt } = utils.hashPassphrase("secure1");
+    const { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
+    
     await requestHandler.handle(callingModule, {
         privatePort: 3000, 
         path: "/test", 
         publicHost: "localhost", 
-        publicPort: 4000,
+        publicPort: 3000,
         hashedPassphrase,
-        hashedPassphraseSalt: salt
-        
+        hashedPassphraseSalt
     });
+
+//    await requestHandler.handle(callingModule, {
+//         privatePort: 3000, 
+//         path: "/test", 
+//         publicHost: "localhost", 
+//         publicPort: 3000
+//     });
+
 })().catch((err)=>{
     console.error(err);
 });

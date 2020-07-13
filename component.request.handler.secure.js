@@ -81,7 +81,7 @@ module.exports = {
     sessions: [],
     handle: (callingModule, options) => {
         delegate.register(thisModule, async (request) => {
-            const { username, passphrase, token, fromhost, fromport } = request.headers;
+            let { username, passphrase, token, fromhost, fromport } = request.headers;
             let results = { headers: {}, statusCode: -1, statusMessage: "" };
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
             let session = module.exports.sessions.find(session => session.token === token);
@@ -94,19 +94,18 @@ module.exports = {
                 } else {
                     logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
                 }
-            } else if (username && fromhost && fromport && passphrase ) {
+            } else if (username && fromhost && fromport ) { //secured
+                let { hashedPassphrase, hashedPassphraseSalt } = options;
+                if (!hashedPassphrase || !hashedPassphraseSalt){ // unsecured
+                    logging.write("Request Handler Secure",`request handler is not passphrase proected`);
+                    passphrase = "unsecured";
+                    ({ hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase(passphrase));
+                }
                 session = module.exports.sessions.find(session => session.username === username);
                 if (!session){
-                    session = new SecureSession({ 
-                        username,
-                        fromhost,
-                        fromport,
-                        token,
-                        hashedPassphrase: options.hashedPassphrase,
-                        hashedPassphraseSalt: options.hashedPassphraseSalt
-                    });
+                    session = new SecureSession({ username, fromhost, fromport, token, hashedPassphrase, hashedPassphraseSalt});
                 }
-                if (passphrase && session.authenticate({ passphrase }) ===true){
+                if ( passphrase && session.authenticate({ passphrase }) === true ){
                     if (!module.exports.sessions.find(session => session.username === username)){
                         module.exports.sessions.push(session);
                         logging.write("Request Handler Secure",`new session ${session.id} created for ${requestUrl}`);
