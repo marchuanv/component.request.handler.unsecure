@@ -12,11 +12,9 @@ const utils = require("utils");
         path: "/test", 
         publicHost: "localhost", 
         publicPort: 4000,
-        username: "admin",
         hashedPassphrase,
-        hashedPassphraseSalt: salt,
-        fromHost: "somedomain",
-        fromPort: 6000
+        hashedPassphraseSalt: salt
+        
     });
 })().catch((err)=>{
     console.error(err);
