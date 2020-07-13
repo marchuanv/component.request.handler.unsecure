@@ -15,8 +15,8 @@ const utils = require("utils");
         username: "admin",
         hashedPassphrase,
         hashedPassphraseSalt: salt,
-        fromhost: "somedomain",
-        fromport: 6000
+        fromHost: "somedomain",
+        fromPort: 6000
     });
 })().catch((err)=>{
     console.error(err);
