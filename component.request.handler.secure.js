@@ -78,7 +78,7 @@ function SecureSession({ username, hashedPassphrase, hashedPassphraseSalt, token
 
 module.exports = { 
     sessions: [],
-    handle: (options) => {
+    handle: (callingModule, options) => {
         delegate.register(thisModule, async (request) => {
             const { username, passphrase, hashedPassphrase, hashedPassphraseSalt, token, fromhost, fromport } = request.headers;
             let results = { headers: {}, statusCode: -1, statusMessage: "" };
@@ -130,7 +130,7 @@ module.exports = {
                 return results;
             }
             logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
-            results = await delegate.call(options.callingModule, { fromhost, fromport, data: decryptedData } );
+            results = await delegate.call(callingModule, { fromhost, fromport, data: decryptedData } );
             results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data: request.data });
             results.headers.encryptionkey = session.getEncryptionKey();
             results.headers.token = session.token;
