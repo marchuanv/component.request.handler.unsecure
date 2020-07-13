@@ -131,6 +131,9 @@ module.exports = {
             }
             logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
             results = await delegate.call(callingModule, { fromHost, fromPort, data: decryptedData } );
+            if (results.error){
+                return results;    
+            }
             results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data: request.data });
             results.headers.encryptionkey = session.getEncryptionKey();
             results.headers.token = session.token;
