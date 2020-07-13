@@ -80,7 +80,7 @@ module.exports = {
     sessions: [],
     handle: (options) => {
         delegate.register(thisModule, async (request) => {
-            const { username, passphrase, token, fromhost, fromport } = request.headers;
+            const { username, passphrase, hashedPassphrase, hashedPassphraseSalt, token, fromhost, fromport } = request.headers;
             let results = { headers: {}, statusCode: -1, statusMessage: "" };
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
             let session = module.exports.sessions.find(session => session.token === token);
@@ -93,29 +93,31 @@ module.exports = {
                 } else {
                     logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
                 }
-            } else if (options.username && options.hashedPassphrase && options.hashedPassphraseSalt && username && passphrase && fromhost && fromport ) {
-                if (options.username === username){
-                    const newSession = new SecureSession({ 
-                        username, 
-                        hashedPassphrase: options.hashedPassphrase, 
-                        hashedPassphraseSalt: options.hashedPassphraseSalt,
-                        fromhost,
-                        fromport,
-                        token
-                    });
-                    if (newSession.authenticate({ passphrase })===true){
-                        module.exports.sessions.push(newSession);
-                        session = newSession;
-                        logging.write("Request Handler Secure",`new session ${session.id} created for ${requestUrl}`);
-                    } else {
-                        logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
-                        const message = "Unauthorised";
-                        results.statusCode = 401;
-                        results.statusMessage = message;
-                        results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
-                        results.data = message;
-                        return results;
-                    }
+            } else if (username && fromhost && fromport && ( (hashedPassphrase && hashedPassphraseSalt) || passphrase ) ) {
+                const newSession = new SecureSession({ 
+                    username,
+                    hashedPassphrase,
+                    hashedPassphraseSalt,
+                    fromhost,
+                    fromport,
+                    token
+                });
+                if (options.hashedPassphrase === hashedPassphrase && options.hashedPassphraseSalt === hashedPassphraseSalt){
+                    module.exports.sessions.push(newSession);
+                    session = newSession;
+                    logging.write("Request Handler Secure",`new session ${session.id} created for ${requestUrl}`);
+                } else if (passphrase && newSession.authenticate({ passphrase })===true){
+                    module.exports.sessions.push(newSession);
+                    session = newSession;
+                    logging.write("Request Handler Secure",`new session ${session.id} created for ${requestUrl}`);
+                } else {
+                    logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
+                    const message = "Unauthorised";
+                    results.statusCode = 401;
+                    results.statusMessage = message;
+                    results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
+                    results.data = message;
+                    return results;
                 }
                 decryptedData = request.data;
             } else {
@@ -137,6 +139,14 @@ module.exports = {
             results.headers["Content-Length"] = Buffer.byteLength(results.data);
             return results;
         });
-        requestHandler.handle({ callingModule: thisModule, port: options.privatePort, path: options.path, loginHtmlFilePath: options.loginHtmlFilePath });
+        requestHandler.handle(thisModule, {
+            port: options.privatePort,
+            path: options.path,
+            hashedPassphrase: options.hashedPassphrase,
+            hashedPassphraseSalt: options.hashedPassphraseSalt,
+            fromport: options.fromport,
+            fromhost: options.fromhost,
+            username: options.username
+        });
     }
 };
