@@ -159,6 +159,6 @@ module.exports = {
             results.headers["Content-Length"] = Buffer.byteLength(results.data);
             return results;
         });
-        requestHandler.handle(thisModule, { host: options.host, port: options.privatePort, path: options.path });
+        requestHandler.handle(thisModule, { host: options.privateHost, port: options.privatePort, path: options.path });
     }
 };
