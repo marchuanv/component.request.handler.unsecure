@@ -95,7 +95,7 @@ module.exports = {
         delegate.register(thisModule, async ( { headers, data }) => {
             ({ username, token, fromhost, fromport } = headers);
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
-            let session = module.exports.sessions.find(s => s.username === username && s.fromhost === fromhost && s.fromport === fromport );
+            let session = module.exports.sessions.find(s => s.token === token);
             if (session) {
                 logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
                 logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
@@ -129,9 +129,24 @@ module.exports = {
         });
 
         delegate.register(thisLoginModule, async ({ headers: { username, passphrase, fromhost, fromport }  }) => {
-            const removeIndex = module.exports.sessions.findIndex(s => s.username === username && s.fromhost === fromhost && s.fromport === fromport );
-            if (removeIndex > -1){
-                module.exports.sessions.splice(removeIndex,1);
+            const index = module.exports.sessions.findIndex(s => s.username === username && s.fromhost === fromhost && s.fromport === fromport );
+            let session = module.exports.sessions[index];
+            if (session){
+                const statusMessage = "Success";
+                return { 
+                    headers: { 
+                        "Content-Type":"text/plain", 
+                        "Content-Length": Buffer.byteLength(statusMessage),
+                        token: session.token,
+                        encryptionkey: session.getEncryptionKey()
+                    },
+                    statusCode: 200, 
+                    statusMessage,
+                    data: statusMessage
+                };
+            }
+            if (index > -1){
+                module.exports.sessions.splice(index,1);
             }
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
             if (username && fromhost && fromport ) { //secured
