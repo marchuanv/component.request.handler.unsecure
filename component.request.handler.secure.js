@@ -148,7 +148,7 @@ module.exports = {
             if (index > -1){
                 module.exports.sessions.splice(index,1);
             }
-            const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
+            const requestUrl = `${fromhost}:${options.publicPort}${options.path}`;
             if (username && fromhost && fromport ) { //secured
                 let { hashedPassphrase, hashedPassphraseSalt } = options;
                 if (!hashedPassphrase || !hashedPassphraseSalt){ // unsecured
