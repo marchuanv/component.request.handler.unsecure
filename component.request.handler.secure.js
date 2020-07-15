@@ -1,10 +1,10 @@
 const utils = require("utils");
-const logging = require("logging");
 const crypto = require("crypto");
 const requestHandler = require("component.request.handler.user");
 const delegate = require("component.delegate");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
 
+const logging = require("logging");
 logging.config.add("Request Handler Secure");
 
 const isBase64String = (str) => {
