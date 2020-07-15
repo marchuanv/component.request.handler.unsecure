@@ -147,7 +147,7 @@ module.exports = {
                 return results;
             }
             logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
-            results = await delegate.call(callingModule, { username, fromhost, fromport, data: decryptedData } );
+            results = await delegate.call(callingModule, { headers: request.headers, data: decryptedData } );
             if (results.error){
                 return results;
             }
