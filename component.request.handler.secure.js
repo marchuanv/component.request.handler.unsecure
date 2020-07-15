@@ -91,7 +91,7 @@ module.exports = {
     sessions: [],
     handle: (callingModule, options) => {
         const thisModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.${options.publicPort}`;
-        const thisLoginModule = `component.request.handler.secure.login.${options.publicPort}`;
+        const thisLoginModule = `component.request.handler.secure.login`;
         delegate.register(thisModule, async ( { headers, data }) => {
             ({ username, token, fromhost, fromport } = headers);
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
