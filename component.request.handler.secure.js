@@ -79,7 +79,7 @@ function SecureSession({ username, token, fromhost, fromport, hashedPassphrase, 
 module.exports = { 
     sessions: [],
     handle: (callingModule, options) => {
-        const thisModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.${options.port}`;
+        const thisModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.${options.privatePort}`;
         delegate.register(thisModule, async (request) => {
             let { username, passphrase, token, fromhost, fromport } = request.headers;
             let results = { headers: {}, statusCode: -1, statusMessage: "" };
