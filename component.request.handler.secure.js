@@ -92,20 +92,51 @@ module.exports = {
     sessions: [],
     handle: (callingModule, options) => {
         const thisModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.${options.privatePort}`;
+        const thisLoginModule = `component.request.handler.secure.login.${options.privatePort}`;
         delegate.register(thisModule, async (request) => {
+            let { headers: { token }, data } = request;
+            const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
+            let session = module.exports.sessions.find(s => s.token === token && s.port === options.privatePort);
+            if (session) {
+                logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
+                logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
+                if (isBase64String(data)===true){
+                    data = session.decryptData({ data }) || data;
+                } else {
+                    logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
+                }
+                logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
+                let results = await delegate.call(callingModule, { headers: request.headers }, { data });
+                if (results.error){
+                    return results;
+                }
+                results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data });
+                results.headers.encryptionkey = session.getEncryptionKey();
+                results.headers.token = session.token;
+                results.fromhost = session.fromhost;
+                results.fromport = session.fromport;
+                results.headers["Content-Length"] = Buffer.byteLength(results.data);
+                return results;
+            } else {
+                logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
+                const statusMessage = "Unauthorised";
+                return { 
+                    headers: { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(statusMessage) },
+                    statusCode: 401, 
+                    statusMessage,
+                    data: statusMessage
+                };
+            }
+        });
+
+        delegate.register(thisLoginModule, async (request) => {
             let { username, passphrase, token, fromhost, fromport } = request.headers;
             let results = { headers: {}, statusCode: -1, statusMessage: "" };
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
             let session = module.exports.sessions.find(s => s.token === token && s.port === options.privatePort);
             let decryptedData = "";
             if (session) {
-                logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
-                logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
-                if (isBase64String(request.data)===true){
-                    decryptedData = session.decryptData({ data: request.data }) || request.data;
-                } else {
-                    logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
-                }
+               throw new Error("already logged in");
             } else if (username && fromhost && fromport ) { //secured
                 let { hashedPassphrase, hashedPassphraseSalt } = options;
                 if (!hashedPassphrase || !hashedPassphraseSalt){ // unsecured
@@ -147,7 +178,7 @@ module.exports = {
                 return results;
             }
             logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
-            results = await delegate.call(callingModule, { headers: request.headers, data: decryptedData } );
+            results = await delegate.call(callingModule, { headers: request.headers }, { data: decryptedData });
             if (results.error){
                 return results;
             }
@@ -159,6 +190,8 @@ module.exports = {
             results.headers["Content-Length"] = Buffer.byteLength(results.data);
             return results;
         });
+
         requestHandler.handle(thisModule, { host: options.privateHost, port: options.privatePort, path: options.path });
+        requestHandler.handle(thisLoginModule, { host: options.privateHost, port: options.privatePort, path: "/login" });
     }
 };
