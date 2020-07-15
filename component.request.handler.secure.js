@@ -91,7 +91,7 @@ module.exports = {
     sessions: [],
     handle: (callingModule, options) => {
         const thisModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.${options.publicPort}`;
-        const thisLoginModule = `component.request.handler.secure.login`;
+        const thisLoginModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.login.${options.publicPort}`;
         delegate.register(thisModule, async ( { headers, data }) => {
             ({ username, token, fromhost, fromport } = headers);
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
@@ -129,7 +129,7 @@ module.exports = {
         });
 
         delegate.register(thisLoginModule, async ({ headers: { username, passphrase, fromhost, fromport }  }) => {
-            const index = module.exports.sessions.findIndex(s => s.username === username && s.fromhost === fromhost && s.fromport === fromport );
+            const index = module.exports.sessions.findIndex(s => s.username === username && s.host === options.publicHost && s.port === options.publicPort );
             let session = module.exports.sessions[index];
             if (session){
                 const statusMessage = "Success";
@@ -145,10 +145,7 @@ module.exports = {
                     data: statusMessage
                 };
             }
-            if (index > -1){
-                module.exports.sessions.splice(index,1);
-            }
-            const requestUrl = `${fromhost}:${options.publicPort}${options.path}`;
+            const requestUrl = `${options.publicHost}:${options.publicPort}/login`;
             if (username && fromhost && fromport ) { //secured
                 let { hashedPassphrase, hashedPassphraseSalt } = options;
                 if (!hashedPassphrase || !hashedPassphraseSalt){ // unsecured
