@@ -116,6 +116,9 @@ module.exports = {
                 results.fromport = session.fromport;
                 results.headers["Content-Length"] = Buffer.byteLength(results.data);
                 return results;
+            } else if (!options.hashedPassphrase || !options.hashedPassphraseSalt) { 
+                logging.write("Request Handler Secure",`request is not configured to be passphrase protected`);
+                return await delegate.call(callingModule, { headers, data });
             } else {
                 logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
                 const statusMessage = "Unauthorised";
