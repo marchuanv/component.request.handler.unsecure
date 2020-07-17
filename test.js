@@ -3,7 +3,7 @@ const delegate = require("component.delegate");
 const utils = require("utils");
 ( async() => {
 
-    const callingModule = "component.request.handler.secure";
+    const callingModule = "something";
     delegate.register(callingModule, () => {
         let statusMessage = "Success";
         return { 

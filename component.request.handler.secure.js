@@ -1,4 +1,5 @@
-const requestHandlerSecureLogin = require("component.request.handler.secure.login");
+const requestHandlerSecureAuthenticate = require("component.request.handler.secure.authenticate");
+const requestHandlerUser = require("component.request.handler.user");
 const delegate = require("component.delegate");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
 const logging = require("logging");
@@ -9,15 +10,27 @@ const isBase64String = (str) => {
     return base64.test(str);
 };
 
+const decryptFromBase64Str = (base64Str, decryptionKey, passphrase) => {
+    const dataBuf = Buffer.from(base64Str, "base64");
+    return crypto.privateDecrypt({ 
+        key: decryptionKey,
+        passphrase,
+        padding: crypto.constants.RSA_PKCS1_PADDING
+    }, dataBuf).toString("utf8");
+}
+
 module.exports = { 
     sessions: [],
     handle: (callingModule, options) => {
         const thisModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.${options.publicPort}`;
-        delegate.register(thisModule, async ( { headers, data, session }) => {
-            ({ username, token, fromhost, fromport } = headers);
+        delegate.register(thisModule, async ( { headers, data, privateKey, hashedPassphrase }) => {
+            if (!options.hashedPassphrase || !options.hashedPassphraseSalt) { 
+                logging.write("Request Handler Secure",`request is not configured to be passphrase protected`);
+                return await delegate.call(callingModule, { headers, data });
+            }
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
-            if (session && session.token) {
-                logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
+            let session = module.exports.sessions.find( s => s.token === token);
+            if (session){
                 logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
                 if (isBase64String(data)===true){
                     data = session.decryptData({ data }) || data;
@@ -29,16 +42,19 @@ module.exports = {
                 if (results.error){
                     return results;
                 }
-                results.data = session.encryptData({ encryptionkey: headers.encryptionkey, data });
-                results.headers.encryptionkey = session.getEncryptionKey();
+                results.data = decryptFromBase64Str(data, session.privateKey, hashedPassphrase);
+                results.headers.encryptionkey = session.encryptionkey
                 results.headers.token = session.token;
                 results.fromhost = session.fromhost;
                 results.fromport = session.fromport;
                 results.headers["Content-Length"] = Buffer.byteLength(results.data);
                 return results;
-            } else if (!options.hashedPassphrase || !options.hashedPassphraseSalt) { 
-                logging.write("Request Handler Secure",`request is not configured to be passphrase protected`);
-                return await delegate.call(callingModule, { headers, data });
+            } else if (privateKey && headers.token && headers.encryptionkey) {
+                session = module.exports.sessions.push({ 
+                    token: headers.token,
+                    encryptionkey,
+                    privateKey
+                });
             } else {
                 logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
                 const statusMessage = "Unauthorised";
@@ -50,6 +66,7 @@ module.exports = {
                 };
             }
         });
-        requestHandlerSecureLogin.handle(thisModule, options);
+        requestHandlerUser.handle(thisModule, options);
+        requestHandlerSecureAuthenticate.handle(thisModule, options);
     }
 };
