@@ -15,7 +15,7 @@ const utils = require("utils");
     });
 
     //Secure
-    const { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
+    let { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
     await requestHandlerSecure.handle(callingModule, {
         privateHost: "localhost",
         privatePort: 3000,
@@ -25,6 +25,7 @@ const utils = require("utils");
         hashedPassphrase,
         hashedPassphraseSalt
     });
+    ({ hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure2"));
     await requestHandlerSecure.handle(callingModule, {
         privateHost: "localhost",
         privatePort: 4000,
