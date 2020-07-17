@@ -16,7 +16,7 @@ module.exports = {
         delegate.register(thisModule, async ( { headers, data, session }) => {
             ({ username, token, fromhost, fromport } = headers);
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
-            if (session.token) {
+            if (session && session.token) {
                 logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
                 logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
                 if (isBase64String(data)===true){
