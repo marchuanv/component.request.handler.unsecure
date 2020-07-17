@@ -1,5 +1,6 @@
 const requestHandlerSecureAuthenticate = require("component.request.handler.secure.authenticate");
 const requestHandlerUser = require("component.request.handler.user");
+const crypto = require("crypto");
 const delegate = require("component.delegate");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
 const logging = require("logging");
@@ -10,6 +11,10 @@ const isBase64String = (str) => {
     return base64.test(str);
 };
 
+const base64ToString = (base64Str) => {
+    return Buffer.from(base64Str, "base64").toString("utf8");;
+}
+
 const decryptFromBase64Str = (base64Str, decryptionKey, passphrase) => {
     const dataBuf = Buffer.from(base64Str, "base64");
     return crypto.privateDecrypt({ 
@@ -17,7 +22,15 @@ const decryptFromBase64Str = (base64Str, decryptionKey, passphrase) => {
         passphrase,
         padding: crypto.constants.RSA_PKCS1_PADDING
     }, dataBuf).toString("utf8");
-}
+};
+
+const encryptToBase64Str = (dataStr, encryptionkey) => {
+    const dataBuf = Buffer.from(dataStr, "utf8");
+    return crypto.publicEncrypt( { 
+        key: encryptionkey,
+        padding: crypto.constants.RSA_PKCS1_PADDING
+    }, dataBuf).toString("base64");
+};
 
 module.exports = { 
     sessions: [],
@@ -29,22 +42,22 @@ module.exports = {
                 return await delegate.call(callingModule, { headers, data });
             }
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
-            let session = module.exports.sessions.find( s => s.token === token);
+            let session = module.exports.sessions.find( s => s.token === headers.token);
             if (session){
                 logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
                 if (isBase64String(data)===true){
-                    data = session.decryptData({ data }) || data;
+                    data = decryptFromBase64Str(data, session.privateKey, hashedPassphrase);
                 } else {
                     logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
                 }
+                
                 logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
                 let results = await delegate.call(callingModule, { headers, data });
                 if (results.error){
                     return results;
                 }
-                results.data = decryptFromBase64Str(data, session.privateKey, hashedPassphrase);
+                results.data = encryptToBase64Str(data, base64ToString(headers.encryptionkey));
                 results.headers.encryptionkey = session.encryptionkey
-                results.headers.token = session.token;
                 results.fromhost = session.fromhost;
                 results.fromport = session.fromport;
                 results.headers["Content-Length"] = Buffer.byteLength(results.data);
@@ -52,9 +65,17 @@ module.exports = {
             } else if (privateKey && headers.token && headers.encryptionkey) {
                 session = module.exports.sessions.push({ 
                     token: headers.token,
-                    encryptionkey,
+                    encryptionkey: headers.encryptionkey,
                     privateKey
                 });
+                logging.write("Request Handler Secure",`${requestUrl} is authorised.`);
+                const statusMessage = "Authorised";
+                return {
+                    headers,
+                    statusCode: 200,
+                    statusMessage,
+                    data: statusMessage
+                };
             } else {
                 logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
                 const statusMessage = "Unauthorised";
@@ -66,7 +87,7 @@ module.exports = {
                 };
             }
         });
-        requestHandlerUser.handle(thisModule, options);
         requestHandlerSecureAuthenticate.handle(thisModule, options);
+        requestHandlerUser.handle(thisModule, options);
     }
 };
