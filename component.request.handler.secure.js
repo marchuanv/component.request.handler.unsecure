@@ -13,11 +13,10 @@ module.exports = {
     sessions: [],
     handle: (callingModule, options) => {
         const thisModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.${options.publicPort}`;
-        delegate.register(thisModule, async ( { headers, data }) => {
+        delegate.register(thisModule, async ( { headers, data, session }) => {
             ({ username, token, fromhost, fromport } = headers);
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
-            let session = module.exports.sessions.find(s => s.token === token);
-            if (session) {
+            if (session.token) {
                 logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
                 logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
                 if (isBase64String(data)===true){
@@ -43,9 +42,9 @@ module.exports = {
             } else {
                 logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
                 const statusMessage = "Unauthorised";
-                return { 
+                return {
                     headers: { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(statusMessage) },
-                    statusCode: 401, 
+                    statusCode: 401,
                     statusMessage,
                     data: statusMessage
                 };
