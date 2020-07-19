@@ -1,9 +1,8 @@
-const utils = require("utils");
+const requestHandlerSecureAuthenticate = require("component.request.handler.secure.authenticate");
+const requestHandlerUser = require("component.request.handler.user");
 const crypto = require("crypto");
-const requestHandler = require("component.request.handler.user");
 const delegate = require("component.delegate");
 const base64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)$/;
-
 const logging = require("logging");
 logging.config.add("Request Handler Secure");
 
@@ -12,20 +11,8 @@ const isBase64String = (str) => {
     return base64.test(str);
 };
 
-const stringToBase64 = (str) => {
-    return Buffer.from(str, "utf8").toString("base64");
-}
-
 const base64ToString = (base64Str) => {
     return Buffer.from(base64Str, "base64").toString("utf8");;
-}
-
-const encryptToBase64Str = (dataStr, encryptionkey) => {
-    const dataBuf = Buffer.from(dataStr, "utf8");
-    return crypto.publicEncrypt( { 
-        key: encryptionkey,
-        padding: crypto.constants.RSA_PKCS1_PADDING
-    }, dataBuf).toString("base64");
 }
 
 const decryptFromBase64Str = (base64Str, decryptionKey, passphrase) => {
@@ -35,114 +22,72 @@ const decryptFromBase64Str = (base64Str, decryptionKey, passphrase) => {
         passphrase,
         padding: crypto.constants.RSA_PKCS1_PADDING
     }, dataBuf).toString("utf8");
-}
-
-const generateKeys = (passphrase) => {
-    return crypto.generateKeyPairSync('rsa', { modulusLength: 4096,
-        publicKeyEncoding: { type: 'spki', format: 'pem'},
-        privateKeyEncoding: { type: 'pkcs8', format: 'pem', cipher: 'aes-256-cbc', passphrase }
-    });
 };
 
-function SecureSession({ username, token, fromhost, fromport, hashedPassphrase, hashedPassphraseSalt }) {
-    
-    this.id = utils.generateGUID();
-    this.fromhost = fromhost;
-    this.fromport = fromport;
-    this.username = username;
-
-    this.authenticate = ({ passphrase }) => {
-        const { publicKey, privateKey } = generateKeys(hashedPassphrase);
-        this.privateKey = privateKey;
-        this.publicKey = publicKey;
-        this.encryptedPassphrase = encryptToBase64Str(hashedPassphrase, publicKey);
-        this.token = token || encryptToBase64Str(utils.getJSONString({ username , fromhost, fromport }), publicKey);
-        const results = utils.hashPassphrase(passphrase, hashedPassphraseSalt);
-        return results.hashedPassphrase === hashedPassphrase;
-    };
-
-    this.getEncryptionKey = () => {
-        return stringToBase64(this.publicKey);
-    };
-
-    this.encryptData= ({ encryptionkey, data } ) => {
-        const encryptedData = encryptToBase64Str(data, base64ToString(encryptionkey || "") || this.publicKey );
-        return encryptedData;
-    };
-    
-    this.decryptData = ({ data } ) => {
-        const decryptedData = decryptFromBase64Str(data, this.privateKey, hashedPassphrase);
-        return decryptedData;
-    };
-}
+const encryptToBase64Str = (dataStr, encryptionkey) => {
+    const dataBuf = Buffer.from(dataStr, "utf8");
+    return crypto.publicEncrypt( { 
+        key: encryptionkey,
+        padding: crypto.constants.RSA_PKCS1_PADDING
+    }, dataBuf).toString("base64");
+};
 
 module.exports = { 
     sessions: [],
     handle: (callingModule, options) => {
-        const thisModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.${options.privatePort}`;
-        delegate.register(thisModule, async (request) => {
-            let { username, passphrase, token, fromhost, fromport } = request.headers;
-            let results = { headers: {}, statusCode: -1, statusMessage: "" };
+        const thisModule = `component.request.handler.secure.${options.path.replace(/\//g,"")}.${options.publicPort}`;
+        delegate.register(thisModule, async ( { headers, data, privateKey, hashedPassphrase }) => {
+            if (!options.hashedPassphrase || !options.hashedPassphraseSalt) { 
+                logging.write("Request Handler Secure",`request is not configured to be passphrase protected`);
+                return await delegate.call(callingModule, { headers, data });
+            }
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
-            let session = module.exports.sessions.find(session => session.token === token);
-            let decryptedData = "";
-            if (session) {
-                logging.write("Request Handler Secure",`using session ${session.id} for ${requestUrl}`);
+            let session = module.exports.sessions.find( s => s.token === headers.token);
+            if (session){
                 logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
-                if (isBase64String(request.data)===true){
-                    decryptedData = session.decryptData({ data: request.data }) || request.data;
+                if (isBase64String(data)===true){
+                    data = decryptFromBase64Str(data, session.privateKey, hashedPassphrase);
                 } else {
                     logging.write("Request Handler Secure",`decryption failed, data received from ${requestUrl} is not encrypted.`);
                 }
-            } else if (username && fromhost && fromport ) { //secured
-                let { hashedPassphrase, hashedPassphraseSalt } = options;
-                if (!hashedPassphrase || !hashedPassphraseSalt){ // unsecured
-                    logging.write("Request Handler Secure",`request handler is not passphrase proected`);
-                    passphrase = "unsecured";
-                    ({ hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase(passphrase));
-                }
-                session = module.exports.sessions.find(session => session.username === username);
-                if (!session){
-                    session = new SecureSession({ username, fromhost, fromport, token, hashedPassphrase, hashedPassphraseSalt});
-                }
-                if ( passphrase && session.authenticate({ passphrase }) === true ){
-                    if (!module.exports.sessions.find(session => session.username === username)){
-                        module.exports.sessions.push(session);
-                        logging.write("Request Handler Secure",`new session ${session.id} created for ${requestUrl}`);
-                    }
-                } else {
-                    module.exports.sessions = module.exports.sessions.filter(session => session.username !== username)
-                    logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
-                    const message = "Unauthorised";
-                    results.statusCode = 401;
-                    results.statusMessage = message;
-                    results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
-                    results.data = message;
+                
+                logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
+                let results = await delegate.call(callingModule, { headers, data });
+                if (results.error){
                     return results;
                 }
-                decryptedData = request.data;
+                results.data = encryptToBase64Str(data, base64ToString(headers.encryptionkey));
+                results.headers.encryptionkey = session.encryptionkey
+                results.fromhost = session.fromhost;
+                results.fromport = session.fromport;
+                results.headers["Content-Length"] = Buffer.byteLength(results.data);
+                return results;
+            } else if (privateKey && headers.token && headers.encryptionkey) {
+                session = module.exports.sessions.push({ 
+                    token: headers.token,
+                    encryptionkey: headers.encryptionkey,
+                    privateKey
+                });
+                logging.write("Request Handler Secure",`${requestUrl} is authorised.`);
+                const statusMessage = "Authorised";
+                return {
+                    headers,
+                    statusCode: 200,
+                    statusMessage,
+                    data: statusMessage
+                };
             } else {
                 logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
-                const message = "Unauthorised";
-                results.statusCode = 401;
-                results.statusMessage = message;
-                results.headers = { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(message) };
-                results.data = message;
-                return results;
+                const statusMessage = "Unauthorised";
+                return {
+                    headers: { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(statusMessage) },
+                    statusCode: 401,
+                    statusMessage,
+                    data: statusMessage
+                };
             }
-            logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
-            results = await delegate.call(callingModule, { username, fromhost, fromport, data: decryptedData } );
-            if (results.error){
-                return results;    
-            }
-            results.data = session.encryptData({ encryptionkey: request.headers.encryptionkey, data: results.data });
-            results.headers.encryptionkey = session.getEncryptionKey();
-            results.headers.token = session.token;
-            results.fromhost = session.fromhost;
-            results.fromport = session.fromport;
-            results.headers["Content-Length"] = Buffer.byteLength(results.data);
-            return results;
         });
-        requestHandler.handle(thisModule, { port: options.privatePort, path: options.path });
+        requestHandlerSecureAuthenticate.handle(thisModule, options);
+        requestHandlerUser.handle(thisModule, options);
     }
 };
