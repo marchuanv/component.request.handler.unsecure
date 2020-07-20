@@ -56,7 +56,9 @@ module.exports = {
                 if (results.error){
                     return results;
                 }
-                results.data = encryptToBase64Str(data, base64ToString(headers.encryptionkey));
+                if (results.data){
+                    results.data = encryptToBase64Str(data, base64ToString(headers.encryptionkey));
+                }
                 results.headers.encryptionkey = session.encryptionkey
                 results.fromhost = session.fromhost;
                 results.fromport = session.fromport;
