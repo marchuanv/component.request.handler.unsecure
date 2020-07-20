@@ -60,7 +60,6 @@ module.exports = {
                 results.headers.encryptionkey = session.encryptionkey
                 results.fromhost = session.fromhost;
                 results.fromport = session.fromport;
-                results.headers["Content-Length"] = Buffer.byteLength(results.data);
                 return results;
             } else if (privateKey && headers.token && headers.encryptionkey) {
                 session = module.exports.sessions.push({ 
@@ -80,7 +79,7 @@ module.exports = {
                 logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
                 const statusMessage = "Unauthorised";
                 return {
-                    headers: { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(statusMessage) },
+                    headers: { "Content-Type":"text/plain" },
                     statusCode: 401,
                     statusMessage,
                     data: statusMessage
