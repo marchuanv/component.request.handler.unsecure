@@ -52,18 +52,14 @@ module.exports = {
                 
                 logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
                 let results = await delegate.call({ context, name }, { headers, data });
-                if (!results){
-                    results = { headers: { "Content-Type":"text/plain" }, statusCode: 200, statusMessage: "Success", data: null };
+                if (results){
+                    if (results.data){
+                        results.data = encryptToBase64Str(data, base64ToString(headers.encryptionkey));
+                    }
+                    results.headers.encryptionkey = session.encryptionkey
+                    results.fromhost = headers.fromhost;
+                    results.fromport = headers.fromport;
                 }
-                if (results.error){
-                    return results;
-                }
-                if (results.data){
-                    results.data = encryptToBase64Str(data, base64ToString(headers.encryptionkey));
-                }
-                results.headers.encryptionkey = session.encryptionkey
-                results.fromhost = headers.fromhost;
-                results.fromport = headers.fromport;
                 return results;
             } else if (privateKey && headers.token && headers.encryptionkey) {
                 module.exports.sessions.push({ 
