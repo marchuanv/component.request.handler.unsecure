@@ -18,7 +18,7 @@ logging.config.add("Request Handler Secure");
     });
 
     //Secure
-    const { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
+    let { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
     await requestHandlerSecure.handle("blabla",{
         privateHost: "localhost",
         privatePort: 3000,
@@ -28,6 +28,8 @@ logging.config.add("Request Handler Secure");
         hashedPassphrase,
         hashedPassphraseSalt
     });
+
+    ({ hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure2"));
     await requestHandlerSecure.handle("blabla",{
         privateHost: "localhost",
         privatePort: 4000,

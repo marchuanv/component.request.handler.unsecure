@@ -35,13 +35,13 @@ module.exports = {
     sessions: [],
     handle: (context, options) => {
         const name = `${options.publicPort}${options.path}`;
-        delegate.register("component.request.handler.secure", name, async ( { headers, data, privateKey, hashedPassphrase }) => {
+        delegate.register("component.request.handler.secure", name, async ( { headers, data, privateKey, hashedPassphrase, publicPort }) => {
             if (!options.hashedPassphrase || !options.hashedPassphraseSalt) { 
                 logging.write("Request Handler Secure",`request is not configured to be passphrase protected`);
                 return await delegate.call({ context, name }, { headers, data });
             }
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
-            let session = module.exports.sessions.find( s => s.token === headers.token);
+            let session = module.exports.sessions.find( s => s.token === headers.token && s.publicPort === publicPort);
             if (session){
                 logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
                 if (isBase64String(data)===true){
@@ -62,14 +62,15 @@ module.exports = {
                     results.data = encryptToBase64Str(data, base64ToString(headers.encryptionkey));
                 }
                 results.headers.encryptionkey = session.encryptionkey
-                results.fromhost = session.fromhost;
-                results.fromport = session.fromport;
+                results.fromhost = headers.fromhost;
+                results.fromport = headers.fromport;
                 return results;
             } else if (privateKey && headers.token && headers.encryptionkey) {
                 module.exports.sessions.push({ 
                     token: headers.token,
                     encryptionkey: headers.encryptionkey,
-                    privateKey
+                    privateKey,
+                    publicPort
                 });
                 logging.write("Request Handler Secure",`${requestUrl} is authorised.`);
                 const statusMessage = "Authorised";
