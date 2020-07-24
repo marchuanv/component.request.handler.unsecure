@@ -1,13 +1,16 @@
 const requestHandlerSecure = require("./component.request.handler.secure.js");
 const delegate = require("component.delegate");
 const utils = require("utils");
+const logging = require("logging");
+logging.config.add("Request Handler Secure");
 ( async() => {
 
-    const callingModule = "something";
-    delegate.register(callingModule, () => {
+    delegate.register("blabla", "3000/test", ({ privateKey, hashedPassphrase }) => {
+        logging.write("Request Handler Secure Authenticate",`PrivateKey: ${privateKey}`);
+        logging.write("Request Handler Secure Authenticate",`HasedPassphrase: ${hashedPassphrase}`);
         let statusMessage = "Success";
         return { 
-            headers: { "Content-Type":"text/plain", "Content-Length": Buffer.byteLength(statusMessage) },
+            headers: { "Content-Type":"text/plain" },
             statusCode: 200, 
             statusMessage,
             data: statusMessage
@@ -15,8 +18,8 @@ const utils = require("utils");
     });
 
     //Secure
-    let { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
-    await requestHandlerSecure.handle(callingModule, {
+    const { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
+    await requestHandlerSecure.handle("blabla",{
         privateHost: "localhost",
         privatePort: 3000,
         publicHost: "localhost",
@@ -25,8 +28,7 @@ const utils = require("utils");
         hashedPassphrase,
         hashedPassphraseSalt
     });
-    ({ hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure2"));
-    await requestHandlerSecure.handle(callingModule, {
+    await requestHandlerSecure.handle("blabla",{
         privateHost: "localhost",
         privatePort: 4000,
         publicHost: "localhost",
@@ -37,7 +39,7 @@ const utils = require("utils");
     });
 
     //Unsecure
-    await requestHandlerSecure.handle(callingModule, {
+    await requestHandlerSecure.handle("blabla",{
         privateHost: "localhost",
         privatePort: 5000,
         publicHost: "localhost",
