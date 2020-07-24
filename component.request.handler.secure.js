@@ -37,7 +37,7 @@ module.exports = {
         const name = `${options.publicPort}${options.path}`;
         delegate.register("component.request.handler.secure", name, async ( { headers, data, privateKey, hashedPassphrase, publicPort }) => {
             if (!options.hashedPassphrase || !options.hashedPassphraseSalt) { 
-                logging.write("Request Handler Secure",`request is not configured to be passphrase protected`);
+                logging.write("Request Handler Secure",`${options.publicHost}:${options.publicPort}${options.path} is not passphrase protected`);
                 return await delegate.call({ context, name }, { headers, data });
             }
             const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
