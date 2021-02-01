@@ -34,14 +34,20 @@ const encryptToBase64Str = (dataStr, encryptionkey) => {
 module.exports = { 
     sessions: [],
     handle: (context, options) => {
-        const name = `${options.publicPort}${options.path}`;
-        delegate.register("component.request.handler.secure", name, async ( { headers, data, privateKey, hashedPassphrase, publicPort }) => {
-            if (!options.hashedPassphrase || !options.hashedPassphraseSalt) { 
-                logging.write("Request Handler Secure",`${options.publicHost}:${options.publicPort}${options.path} is not passphrase protected`);
+        const name = `${options.port}${options.path}`;
+        const isPassphraseProtected = (
+            options.hashedPassphrase !== null && 
+            options.hashedPassphrase !== "" &&
+            options.hashedPassphraseSalt !== null &&
+            options.hashedPassphraseSalt !== ""
+        );
+        delegate.register("component.request.handler.secure", name, async ( { headers, data, privateKey, hashedPassphrase, port }) => {
+            if (!isPassphraseProtected) { 
+                logging.write("Request Handler Secure",`${options.host}:${options.port}${options.path} is not passphrase protected`);
                 return await delegate.call({ context, name }, { headers, data });
             }
-            const requestUrl = `${options.publicHost}:${options.publicPort}${options.path}`;
-            let session = module.exports.sessions.find( s => s.token === headers.token && s.publicPort === publicPort);
+            const requestUrl = `${options.host}:${options.port}${options.path}`;
+            let session = module.exports.sessions.find( s => s.token === headers.token && s.port === port);
             if (session){
                 logging.write("Request Handler Secure",`decrypting data received from ${requestUrl}`);
                 if (isBase64String(data)===true){
@@ -61,12 +67,13 @@ module.exports = {
                     results.fromport = headers.fromport;
                 }
                 return results;
-            } else if (privateKey && headers.token && headers.encryptionkey) {
+            } 
+            if (privateKey && headers.token && headers.encryptionkey) {
                 module.exports.sessions.push({ 
                     token: headers.token,
                     encryptionkey: headers.encryptionkey,
                     privateKey,
-                    publicPort
+                    port
                 });
                 logging.write("Request Handler Secure",`${requestUrl} is authorised.`);
                 const statusMessage = "Authorised";
@@ -76,16 +83,15 @@ module.exports = {
                     statusMessage,
                     data: statusMessage
                 };
-            } else {
-                logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
-                const statusMessage = "Unauthorised";
-                return {
-                    headers: { "Content-Type":"text/plain" },
-                    statusCode: 401,
-                    statusMessage,
-                    data: statusMessage
-                };
             }
+            logging.write("Request Handler Secure",`${requestUrl} is unauthorised.`);
+            const statusMessage = "Unauthorised";
+            return {
+                headers: { "Content-Type":"text/plain" },
+                statusCode: 401,
+                statusMessage,
+                data: statusMessage
+            };
         });
         requestHandlerSecureAuthenticate.handle(options);
     }

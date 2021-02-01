@@ -1,5 +1,6 @@
 const requestHandlerSecure = require("./component.request.handler.secure.js");
 const delegate = require("component.delegate");
+const request = require("component.request");
 const utils = require("utils");
 const logging = require("logging");
 logging.config.add("Request Handler Secure");
@@ -17,37 +18,95 @@ logging.config.add("Request Handler Secure");
         };
     });
 
-    //Secure
+    //Secure With Correct Password
     let { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
     await requestHandlerSecure.handle("blabla",{
-        privateHost: "localhost",
-        privatePort: 3000,
-        publicHost: "localhost",
-        publicPort: 3000,
+        host: "localhost",
+        port: 3000,
         path: "/test",
         hashedPassphrase,
         hashedPassphraseSalt
     });
+    let results = await request.send({ 
+        host: "localhost",
+        port: 3000,
+        path: "/authenticate",
+        method: "GET",
+        headers: { 
+            username: "marchuanv",
+            fromhost: "localhost",
+            fromport: 6000,
+            passphrase: "secure1"
+        }, 
+        data: "",
+        retryCount: 1
+    });
+    if (results.statusCode !== 200){
+        throw "Secure With Correct Password Test Failed";
+    }
 
+    //Secure With Incorrect Password Same Port
     ({ hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure2"));
     await requestHandlerSecure.handle("blabla",{
-        privateHost: "localhost",
-        privatePort: 4000,
-        publicHost: "localhost",
-        publicPort: 4000,
+        host: "localhost",
+        port: 3000,
         path: "/test",
         hashedPassphrase,
         hashedPassphraseSalt
     });
+    results = await request.send({ 
+        host: "localhost",
+        port: 3000,
+        path: "/authenticate",
+        method: "GET",
+        headers: { 
+            username: "marchuanv",
+            fromhost: "localhost",
+            fromport: 6000,
+            passphrase: "secure1"
+        }, 
+        data: "",
+        retryCount: 1
+    });
+    if (results.statusCode !== 401){
+        throw "Secure With Incorrect Password Same Port Test Failed";
+    }
+
+    //Secure With Incorrect Password Different Port
+    ({ hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure2"));
+    await requestHandlerSecure.handle("blabla",{
+        host: "localhost",
+        port: 4000,
+        path: "/test",
+        hashedPassphrase,
+        hashedPassphraseSalt
+    });
+    results = await request.send({ 
+        host: "localhost",
+        port: 4000,
+        path: "/authenticate",
+        method: "GET",
+        headers: { 
+            username: "marchuanv",
+            fromhost: "localhost",
+            fromport: 6000,
+            passphrase: "secure1"
+        }, 
+        data: "",
+        retryCount: 1
+    });
+    if (results.statusCode !== 401){
+        throw "Secure With Incorrect Password Different Port Test Failed";
+    }
 
     //Unsecure
     await requestHandlerSecure.handle("blabla",{
-        privateHost: "localhost",
-        privatePort: 5000,
-        publicHost: "localhost",
-        publicPort: 5000,
+        host: "localhost",
+        port: 5000,
         path: "/test"
     });
+
+
 
 })().catch((err)=>{
     console.error(err);
