@@ -36,10 +36,8 @@ module.exports = {
     handle: (context, options) => {
         const name = `${options.port}${options.path}`;
         const isPassphraseProtected = (
-            options.hashedPassphrase !== null && 
-            options.hashedPassphrase !== "" &&
-            options.hashedPassphraseSalt !== null &&
-            options.hashedPassphraseSalt !== ""
+            ( options.hashedPassphrase !== null && options.hashedPassphrase !== "" && options.hashedPassphrase !== undefined) &&
+            ( options.hashedPassphraseSalt !== null && options.hashedPassphraseSalt !== "" && options.hashedPassphraseSalt !== undefined)
         );
         delegate.register("component.request.handler.secure", name, async ( { headers, data, privateKey, hashedPassphrase, port }) => {
             if (!isPassphraseProtected) { 
