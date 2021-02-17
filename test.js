@@ -6,15 +6,6 @@ const logging = require("logging");
 logging.config.add("Request Handler Secure");
 ( async() => {
 
-    delegate.register("blabla", "3000/test", ({ privateKey, hashedPassphrase }) => {
-        return { 
-            headers: { "Content-Type":"text/plain" },
-            statusCode: 200, 
-            statusMessage: "Success",
-            data: "Success"
-        };
-    });
-
     //Secure Handler
     let { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
     await requestHandlerSecure.handle("blabla",{
