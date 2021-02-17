@@ -1,5 +1,4 @@
 const requestHandlerSecure = require("./component.request.handler.secure.js");
-const delegate = require("component.delegate");
 const request = require("component.request");
 const utils = require("utils");
 const logging = require("logging");
