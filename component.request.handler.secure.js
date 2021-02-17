@@ -42,13 +42,7 @@ module.exports = {
         delegate.register("component.request.handler.secure", name, async ( { headers, data, privateKey, hashedPassphrase, port }) => {
             if (!isPassphraseProtected) { 
                 logging.write("Request Handler Secure",`${options.host}:${options.port}${options.path} is not passphrase protected`);
-                const statusMessage = "Unsecure";
-                return {
-                    headers,
-                    statusCode: 200,
-                    statusMessage,
-                    data: statusMessage
-                };
+                return await delegate.call({ context, name }, { headers, data });
             }
             const requestUrl = `${options.host}:${options.port}${options.path}`;
             let session = module.exports.sessions.find( s => s.token === headers.token && s.port === port);
