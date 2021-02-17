@@ -58,7 +58,16 @@ module.exports = {
                 let results = await delegate.call({ context, name }, { headers, data });
                 if (results){
                     if (results.data){
-                        results.data = encryptToBase64Str(data, base64ToString(headers.encryptionkey));
+                        if (headers.encryptionkey){
+                            results.data = encryptToBase64Str(data, base64ToString(headers.encryptionkey));
+                        } else {
+                            return {
+                                headers: { "Content-Type":"text/plain" },
+                                statusCode: 400,
+                                statusMessage:"400 Bad Request",
+                                data: "400 Bad Request no EncryptionKey in the request header"
+                            };
+                        }
                     }
                     results.headers.encryptionkey = session.encryptionkey
                     results.fromhost = headers.fromhost;
