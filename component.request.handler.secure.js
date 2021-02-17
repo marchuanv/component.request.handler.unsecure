@@ -67,7 +67,7 @@ module.exports = {
                     results.fromport = headers.fromport;
                 }
                 return results;
-            } 
+            }
             if (privateKey && headers.token && headers.encryptionkey) {
                 module.exports.sessions.push({ 
                     token: headers.token,

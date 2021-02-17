@@ -7,14 +7,11 @@ logging.config.add("Request Handler Secure");
 ( async() => {
 
     delegate.register("blabla", "3000/test", ({ privateKey, hashedPassphrase }) => {
-        logging.write("Request Handler Secure Authenticate",`PrivateKey: ${privateKey}`);
-        logging.write("Request Handler Secure Authenticate",`HasedPassphrase: ${hashedPassphrase}`);
-        let statusMessage = "Success";
         return { 
             headers: { "Content-Type":"text/plain" },
             statusCode: 200, 
-            statusMessage,
-            data: statusMessage
+            statusMessage: "Success",
+            data: "Success"
         };
     });
 
@@ -30,7 +27,7 @@ logging.config.add("Request Handler Secure");
     let results = await request.send({ 
         host: "localhost",
         port: 3000,
-        path: "/authenticate",
+        path: "/test",
         method: "GET",
         headers: { 
             username: "marchuanv",
@@ -57,7 +54,7 @@ logging.config.add("Request Handler Secure");
     results = await request.send({ 
         host: "localhost",
         port: 3000,
-        path: "/authenticate",
+        path: "/test",
         method: "GET",
         headers: { 
             username: "marchuanv",
@@ -84,7 +81,7 @@ logging.config.add("Request Handler Secure");
     results = await request.send({ 
         host: "localhost",
         port: 4000,
-        path: "/authenticate",
+        path: "/test",
         method: "GET",
         headers: { 
             username: "marchuanv",
@@ -99,15 +96,7 @@ logging.config.add("Request Handler Secure");
         throw "Secure With Incorrect Password Different Port Test Failed";
     }
 
-    //Unsecure
-    await requestHandlerSecure.handle("blabla",{
-        host: "localhost",
-        port: 5000,
-        path: "/test"
-    });
-
-
-
 })().catch((err)=>{
     console.error(err);
+    process.exit();
 });
