@@ -96,6 +96,8 @@ logging.config.add("Request Handler Secure");
         throw "Secure With Incorrect Password Different Port Test Failed";
     }
 
+    process.exit();
+
 })().catch((err)=>{
     console.error(err);
     process.exit();
