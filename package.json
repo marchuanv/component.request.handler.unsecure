@@ -26,6 +26,7 @@
     "utils": "git+https://github.com/marchuanv/utils.git"
   },
   "devDependencies": {
-    "component.request": "git+https://github.com/marchuanv/component.request.git"
+    "component.request": "git+https://github.com/marchuanv/component.request.git",
+    "component.request.secure": "git+https://github.com/marchuanv/component.request.secure.git"
   }
 }
