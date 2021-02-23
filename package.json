@@ -1,8 +1,8 @@
 {
-  "name": "component.request.handler.secure",
+  "name": "component.request.handler.unsecure",
   "version": "1.0.0",
   "description": "",
-  "main": "component.request.handler.secure.js",
+  "main": "component.request.handler.unsecure.js",
   "engines": {
     "node": "12.16.1",
     "npm": "6.13.4"
@@ -12,21 +12,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/marchuanv/component.request.handler.secure.git"
+    "url": "git+ssh://git@github.com/marchuanv/component.request.handler.unsecure.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/marchuanv/component.request.handler.secure/issues"
+    "url": "https://github.com/marchuanv/component.request.handler.unsecure/issues"
   },
-  "homepage": "https://github.com/marchuanv/component.request.handler.secure#readme",
+  "homepage": "https://github.com/marchuanv/component.request.handler.unsecure#readme",
   "dependencies": {
-    "component.request.handler.secure.authenticate": "git+https://github.com/marchuanv/component.request.handler.secure.authenticate.git",
-    "logging": "git+https://github.com/marchuanv/logging.git",
-    "utils": "git+https://github.com/marchuanv/utils.git"
+    "component.request.handler.user": "git+https://github.com/marchuanv/component.request.handler.user.git",
+    "logging": "git+https://github.com/marchuanv/logging.git"
   },
   "devDependencies": {
-    "component.request.unsecure": "git+https://github.com/marchuanv/component.request.unsecure.git",
-    "component.request.secure": "git+https://github.com/marchuanv/component.request.secure.git"
+    "component.request.unsecure": "git+https://github.com/marchuanv/component.request.unsecure.git"
   }
 }
