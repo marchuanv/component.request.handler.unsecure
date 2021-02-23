@@ -11,7 +11,7 @@ module.exports = {
             ( options.hashedPassphrase !== null && options.hashedPassphrase !== "" && options.hashedPassphrase !== undefined) &&
             ( options.hashedPassphraseSalt !== null && options.hashedPassphraseSalt !== "" && options.hashedPassphraseSalt !== undefined)
         );
-        delegate.register("component.request.handler.secure", name, async ( { session, headers, data }) => {
+        delegate.register("component.request.handler.secure", name, async ( { session, data }) => {
             if (!isPassphraseProtected) { 
                 logging.write("Request Handler Secure",`${options.host}:${options.port}${options.path} is not passphrase protected`);
                 return await delegate.call({ context, name }, { data });
@@ -30,10 +30,7 @@ module.exports = {
                 }
                 logging.write("Request Handler Secure",`encrypting data received from ${requestUrl} handler`);
                 let results = await delegate.call({ context, name }, { data: decryptedData });
-                if (results.message && results.stack){
-                    return results;
-                } 
-                if (results) {
+                if (results.headers) {
                     if (results.data){
                         const encryptedData = utils.encryptToBase64Str(results.data, utils.base64ToString(session.encryptionkey.remote));
                         if (encryptedData){

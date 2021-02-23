@@ -1,6 +1,6 @@
 const requestHandlerSecure = require("./component.request.handler.secure.js");
-const request = require("component.request");
 const requestSecure = require("component.request.secure");
+const requestUnsecure = require("component.request.unsecure");
 const utils = require("utils");
 const delegate = require("component.delegate");
 const logging = require("logging");
@@ -12,7 +12,7 @@ logging.config.add("Request Handler Secure");
     let { hashedPassphrase, hashedPassphraseSalt } = utils.hashPassphrase("secure1");
     let newRequest = { name: "localhost", port: 3000, path: "/test" };
     const name = `${newRequest.port}${newRequest.path}`;
-    delegate.register("blabla", name, ()=>{
+    delegate.register("blabla", name, () => {
         return { statusCode: 200, statusMessage: "Success", headers: {}, data: "blabla did something" };
     });
     await requestHandlerSecure.handle("blabla",{
@@ -62,7 +62,7 @@ logging.config.add("Request Handler Secure");
     });
 
     //Unsecure Request
-    results = await request.send({ 
+    results = await requestUnsecure.send({ 
         host: newRequest.name,
         port: newRequest.port,
         path: newRequest.path,
@@ -76,7 +76,7 @@ logging.config.add("Request Handler Secure");
         throw "Secure With Incorrect Password Different Port Test Failed";
     }
 
-    process.exit();
+    //process.exit();
 
 })().catch((err)=>{
     console.error(err);
