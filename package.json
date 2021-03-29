@@ -26,6 +26,9 @@
   "component":{
     "host": "localhost",
     "port": 3000,
-    "subscribers": []
+    "subscribers": [],
+    "publishers": [
+      { "moduleName": "component.request.handler.route" }
+    ]
   }
 }
