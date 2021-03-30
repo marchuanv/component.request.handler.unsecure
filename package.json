@@ -25,7 +25,6 @@
   },
   "component":{
     "channel": 3000,
-    "subscribers": [],
     "publishers": [
       { "moduleName": "component.request.handler.route" }
     ]
